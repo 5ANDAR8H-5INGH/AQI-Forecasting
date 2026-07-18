@@ -111,7 +111,10 @@ if st.button("🔮 Generate 3-Day Forecast"):
             row_scaled = scaler.transform(row_df)
             
             pred_aqi = float(model.predict(row_scaled)[0])
-            predictions.append(max(0.0, pred_aqi)) 
+
+            st.write(f"Hour {i}: {pred_aqi}")
+
+            predictions.append(pred_aqi)
             
             lag_2h = lag_1h
             lag_1h = pred_aqi
