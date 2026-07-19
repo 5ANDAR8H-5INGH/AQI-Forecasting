@@ -14,7 +14,10 @@ export default function InfoPanel({ sources }) {
       {open && (
         <div className="px-4 pb-4 text-sm text-muted space-y-2">
           <p>
-            Pollutants: <span className="font-mono text-xs">{sources?.pollutants === 'live' ? 'live CPCB stations via data.gov.in' : 'simulated (no live station data returned for this city, or no API key configured)'}</span>
+            Pollutants: <span className="font-mono text-xs">{sources?.pollutants === 'live' ? 'live CPCB stations via data.gov.in' : 'simulated'}</span>
+            {sources?.pollutants !== 'live' && sources?.pollutants_reason && (
+              <span className="block text-xs text-band-poor mt-1">Reason: {sources.pollutants_reason}</span>
+            )}
           </p>
           <p>
             Weather: <span className="font-mono text-xs">{sources?.weather === 'live' ? 'live Open-Meteo forecast' : 'synthetic seasonal curve (Open-Meteo request failed)'}</span>

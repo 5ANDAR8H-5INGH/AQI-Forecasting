@@ -1,5 +1,6 @@
 import os
 import concurrent.futures
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -8,7 +9,8 @@ from pollutant_client import fetch_live_pollutants
 from weather_client import fetch_weather_forecast
 from forecast_engine import load_artifacts, run_forecast, aqi_category
 
-load_dotenv()
+# Load .env from next to this file, not whatever directory uvicorn was launched from.
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 app = FastAPI(title="Hyperlocal AQI Forecast API")
 
@@ -19,6 +21,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def no_cache_headers(request, call_next):
+    """These endpoints return live/changing data — never let a browser or
+    intermediary cache them by URL."""
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 try:
     model, scaler = load_artifacts()
@@ -59,6 +70,7 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
             weather_forecast = f_weather.result()
 
         pollutant_source = live_pollutants.pop("_source", "mock")
+        pollutant_reason = live_pollutants.pop("_reason", "")
         predictions = run_forecast(model, scaler, live_pollutants, weather_forecast)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Forecast failed: {e}")
@@ -73,7 +85,11 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
         "timestamps": weather_forecast["timestamps"],
         "predictions": [round(p, 1) for p in predictions],
         "pollutants": live_pollutants,
-        "data_sources": {"pollutants": pollutant_source, "weather": weather_forecast.get("source", "unknown")},
+        "data_sources": {
+            "pollutants": pollutant_source,
+            "pollutants_reason": pollutant_reason,
+            "weather": weather_forecast.get("source", "unknown"),
+        },
         "current": {"value": round(predictions[0], 1), "label": current_label, "color": current_color},
         "peak": {"value": round(peak_value, 1), "label": peak_label, "color": peak_color, "hour": peak_hour},
     }
@@ -82,3 +98,21 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/debug/pollutants")
+def debug_pollutants(city: str = Query(...)):
+    """
+    Diagnostic endpoint: shows exactly why a city is or isn't using the live
+    CPCB feed, without going through the forecast pipeline. Hit this in a
+    browser or with curl to check your API key setup.
+    """
+    api_key_present = bool(os.environ.get("DATA_GOV_IN_API_KEY", "").strip())
+    result = fetch_live_pollutants(city)
+    return {
+        "city": city,
+        "api_key_loaded": api_key_present,
+        "source": result.get("_source"),
+        "reason": result.get("_reason"),
+        "pollutants": {k: v for k, v in result.items() if not k.startswith("_")},
+    }
