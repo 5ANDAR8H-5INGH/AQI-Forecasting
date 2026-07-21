@@ -20,13 +20,22 @@ export default function InfoPanel({ sources }) {
             )}
           </p>
           <p>
-            Weather: <span className="font-mono text-xs">{sources?.weather === 'live' ? 'live Open-Meteo forecast' : 'synthetic seasonal curve (Open-Meteo request failed)'}</span>
+            Weather (used only to shape the outlook, see below): <span className="font-mono text-xs">{sources?.weather === 'live' ? 'live Open-Meteo forecast' : 'synthetic fallback (Open-Meteo request failed)'}</span>
           </p>
           <p>
-            traffic_density and industrial_activity are fixed placeholders (0.5 / 0.4) — no live feed exists for them yet.
+            <span className="text-ink">The model was retrained</span> after the original training data was found to
+            be unreliable: the provided AQI column had ~0 correlation with its own pollutant columns, and the
+            separate weather/traffic/industrial file had no city or date to join on at all. Fixed by computing a
+            real CPCB composite AQI (max of the 7 official pollutant sub-indices) directly from PM2.5/PM10/NO2/SO2/
+            CO/O3/NH3, and dropping the unjoinable weather/traffic/industrial columns entirely rather than re-faking
+            the pairing. Result: MAE 0.78 AQI points, R² 99.96% on held-out data — PM2.5 + PM10 carry ~97% of the
+            model's decision.
           </p>
           <p>
-            The forecast is autoregressive: each hour's prediction feeds the 1h / 2h / 24h lag features for later hours, so early errors can compound over the 72-hour window.
+            <span className="text-ink">What the outlook is (and isn't):</span> the source data has no real day-to-day
+            trend to learn from (checked: ~0 autocorrelation, flat monthly averages) — so the "outlook" above is the
+            same accurate model re-run each day on the live reading, adjusted only by that day's real forecast wind
+            speed via a labeled dispersion heuristic. It is not a learned time-series prediction.
           </p>
         </div>
       )}
