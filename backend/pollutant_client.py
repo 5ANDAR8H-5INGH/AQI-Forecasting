@@ -108,14 +108,28 @@ CITY_MOCK_POLLUTANTS = {
 }
 
 
-def _try_waqi(city: str):
-    """Returns (partial_result_dict, reference_aqi, reason) or (None, None, reason) on failure."""
+def _try_waqi(city: str, lat: float = None, lon: float = None):
+    """
+    Returns (partial_result_dict, reference_aqi, reason) or (None, None, reason).
+
+    Prefers WAQI's geo lookup (nearest real station to lat/lon) over its
+    plain-name search — name-based /feed/{city}/ only reliably resolves a
+    handful of famous cities (Delhi matches exactly); for others it can match
+    a station or placeholder with no pollutant data at all, which is exactly
+    what "waqi_ok_but_no_matching_pollutants" means. Falls back to name-based
+    lookup only if no coordinates were given.
+    """
     token = os.environ.get("WAQI_API_TOKEN", "").strip().strip('"').strip("'")
     if not token:
         return None, None, "no_waqi_token"
 
+    if lat is not None and lon is not None:
+        url = f"https://api.waqi.info/feed/geo:{lat};{lon}/"
+    else:
+        url = f"https://api.waqi.info/feed/{city}/"
+
     try:
-        resp = _get_with_retry(f"https://api.waqi.info/feed/{city}/", params={"token": token}, timeout=8)
+        resp = _get_with_retry(url, params={"token": token}, timeout=8)
         if resp.status_code != 200:
             return None, None, f"waqi_http_{resp.status_code}"
 
@@ -132,7 +146,26 @@ def _try_waqi(city: str):
                 found[feature] = round(_index_to_concentration(sub_index, BREAKPOINTS[feature]), 2)
 
         if not found:
-            return None, None, "waqi_ok_but_no_matching_pollutants"
+            if lat is not None and lon is not None:
+                # Geo lookup resolved to something, but it had no pollutant
+                # data (e.g. a met-only station). Try name-based as a
+                # second attempt before giving up entirely.
+                try:
+                    resp2 = _get_with_retry(f"https://api.waqi.info/feed/{city}/", params={"token": token}, timeout=8)
+                    if resp2.status_code == 200 and resp2.json().get("status") == "ok":
+                        data2 = resp2.json()["data"]
+                        iaqi2 = data2.get("iaqi", {})
+                        found2 = {}
+                        for waqi_key, feature in WAQI_TO_FEATURE.items():
+                            if waqi_key in iaqi2 and "v" in iaqi2[waqi_key]:
+                                found2[feature] = round(_index_to_concentration(float(iaqi2[waqi_key]["v"]), BREAKPOINTS[feature]), 2)
+                        if found2:
+                            ref2 = data2.get("aqi")
+                            station2 = data2.get("city", {}).get("name", city)
+                            return found2, ref2, f"ok ({len(found2)} pollutants via WAQI name-lookup fallback, station: {station2})"
+                except requests.exceptions.RequestException:
+                    pass
+            return None, None, "waqi_ok_but_no_matching_pollutants (nearest station has no live pollutant data)"
 
         reference_aqi = data.get("aqi")
         station = data.get("city", {}).get("name", city)
@@ -187,11 +220,13 @@ def _try_data_gov_in(city: str):
         return None, f"unexpected_error: {e}"
 
 
-def fetch_live_pollutants(city: str) -> dict:
+def fetch_live_pollutants(city: str, lat: float = None, lon: float = None) -> dict:
     """
     Returns a dict of all 9 pollutant features (plus "_source", "_reason",
-    and "_reference_aqi" when available). Tries WAQI, then data.gov.in, then
-    falls back to that city's mock baseline for anything still missing.
+    and "_reference_aqi" when available). Tries WAQI (geo lookup by
+    lat/lon if given — much more reliable than name search for anything
+    but a handful of famous cities), then data.gov.in, then falls back to
+    that city's mock baseline for anything still missing.
     """
     baseline = CITY_MOCK_POLLUTANTS.get(city, DEFAULT_MOCK)
     result = dict(baseline)
@@ -199,7 +234,7 @@ def fetch_live_pollutants(city: str) -> dict:
     reference_aqi = None
     got_any_live = False
 
-    waqi_found, waqi_ref, waqi_reason = _try_waqi(city)
+    waqi_found, waqi_ref, waqi_reason = _try_waqi(city, lat, lon)
     reasons.append(f"waqi: {waqi_reason}")
     if waqi_found:
         result.update(waqi_found)

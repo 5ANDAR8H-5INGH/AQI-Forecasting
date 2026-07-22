@@ -75,7 +75,7 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
     coords = CITIES[city]
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            f_pollutants = executor.submit(fetch_live_pollutants, city)
+            f_pollutants = executor.submit(fetch_live_pollutants, city, coords["lat"], coords["lon"])
             f_weather = executor.submit(fetch_daily_wind_forecast, coords["lat"], coords["lon"], OUTLOOK_DAYS)
             live_pollutants = f_pollutants.result()
             weather = f_weather.result()
@@ -135,7 +135,7 @@ def get_scenario(
     coords = CITIES[city]
     try:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            f_pollutants = executor.submit(fetch_live_pollutants, city)
+            f_pollutants = executor.submit(fetch_live_pollutants, city, coords["lat"], coords["lon"])
             f_weather = executor.submit(fetch_daily_wind_forecast, coords["lat"], coords["lon"], OUTLOOK_DAYS)
             live_pollutants = f_pollutants.result()
             weather = f_weather.result()
@@ -183,7 +183,8 @@ def get_interventions(city: str = Query(..., description="One of /api/cities")):
     if city not in CITIES:
         raise HTTPException(status_code=400, detail=f"Unknown city '{city}'. See /api/cities.")
 
-    live_pollutants = fetch_live_pollutants(city)
+    coords = CITIES[city]
+    live_pollutants = fetch_live_pollutants(city, coords["lat"], coords["lon"])
     pollutant_source = live_pollutants.pop("_source", "mock")
     pollutant_reason = live_pollutants.pop("_reason", "")
     reference_aqi = live_pollutants.pop("_reference_aqi", None)
@@ -211,7 +212,8 @@ def debug_pollutants(city: str = Query(...)):
     """
     api_key_present = bool(os.environ.get("DATA_GOV_IN_API_KEY", "").strip())
     waqi_token_present = bool(os.environ.get("WAQI_API_TOKEN", "").strip())
-    result = fetch_live_pollutants(city)
+    coords = CITIES.get(city)
+    result = fetch_live_pollutants(city, coords["lat"] if coords else None, coords["lon"] if coords else None)
     return {
         "city": city,
         "data_gov_in_key_loaded": api_key_present,
