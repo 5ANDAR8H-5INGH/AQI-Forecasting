@@ -72,6 +72,7 @@ def attribute_sources(pollutants: dict) -> list:
     return ranked
 
 
+<<<<<<< HEAD
 # Moderate AQI (101-200) sits below GRAP's own trigger point (Poor, 201+),
 # so there is no *official* GRAP stage to show here -- previously this band
 # returned an empty action list. These are NOT GRAP actions: they're
@@ -96,6 +97,8 @@ MODERATE_HEALTH_NOTE = ("Sensitive groups (children, older adults, and people wi
                          "disease) may experience mild breathing discomfort and should reduce "
                          "prolonged or heavy outdoor exertion. The general public is unlikely to be affected.")
 
+=======
+>>>>>>> 7513ba1e7f1be6e761605bf24388c936f088c80d
 # GRAP (Graded Response Action Plan, India's official Delhi-NCR air quality
 # response framework) actions, tagged by the AQI stage they apply at and the
 # source category they primarily target. Stage thresholds per CPCB/CAQM.
@@ -139,6 +142,7 @@ def recommend_actions(current_aqi: float, ranked_sources: list, top_n_sources: i
     Returns GRAP-stage-appropriate actions, prioritized toward whichever
     source categories are currently scoring highest.
     """
+<<<<<<< HEAD
     if current_aqi <= 100:
         return {
             "stage": None,
@@ -168,6 +172,16 @@ def recommend_actions(current_aqi: float, ranked_sources: list, top_n_sources: i
             ],
         }
 
+=======
+    if current_aqi <= 200:
+        return {
+            "stage": None,
+            "note": "AQI is at or below 'Moderate/Satisfactory' — no GRAP-level intervention triggered. "
+                    "Continue routine monitoring and preventive dust/emissions enforcement.",
+            "actions": [],
+        }
+
+>>>>>>> 7513ba1e7f1be6e761605bf24388c936f088c80d
     if current_aqi > 450:
         stage = "IV"
     elif current_aqi > 400:
