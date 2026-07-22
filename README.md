@@ -46,8 +46,10 @@ labeled dispersion heuristic (see `forecast_engine.wind_dispersion_factor`).
 
 ## Features
 
-- **Live pollutants**: CPCB real-time feed via data.gov.in when an API key is
-  configured; per-city mock fallback otherwise (see `pollutant_client.py`).
+- **Live pollutants**: WAQI (aqicn.org) as the primary source — fast, free,
+  covers 586+ real CPCB stations across India. Falls back to data.gov.in's
+  own CPCB feed for anything WAQI doesn't report, then to a per-city mock
+  baseline if neither is available (see `pollutant_client.py`).
 - **Current AQI**: the retrained model's direct output from that reading.
 - **Outlook**: multi-day heuristic projection (see model card above).
 - **Source attribution + GRAP action plan** (`intervention_engine.py`): ranks
@@ -58,13 +60,20 @@ labeled dispersion heuristic (see `forecast_engine.wind_dispersion_factor`).
   curtailment, dust suppression, etc.) against the current baseline before
   a policy is enacted.
 
-## 1. Get a data.gov.in API key (optional but recommended)
+## 1. Get API keys (both optional, but strongly recommended)
 
-Without this, pollutant readings are simulated for every city.
+Without either, pollutant readings are simulated for every city.
 
+**WAQI (primary — do this one, it's fast):**
+1. Go to https://aqicn.org/data-platform/token
+2. Enter your email — the token is emailed instantly, no account/SSO needed
+3. Put it in `backend/.env` as `WAQI_API_TOKEN`
+
+**data.gov.in (secondary/backup — slower, kept for pollutants WAQI misses):**
 1. Sign up at https://www.data.gov.in/
 2. Log in, go to **Dashboard** (https://www.data.gov.in/dashboard), then **My Account**
-3. Copy the key
+3. Put it in `backend/.env` as `DATA_GOV_IN_API_KEY`. Known to be slow/flaky —
+   `pollutant_client.py` retries once with a 20s timeout before giving up.
 
 ## 2. Run the backend
 

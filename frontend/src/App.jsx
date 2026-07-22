@@ -82,6 +82,12 @@ export default function App() {
                 <p className="text-[11px] text-muted mt-3 text-center">
                   Computed by the retrained model from live pollutant readings (MAE 0.78, R² 99.96% on held-out data).
                 </p>
+                {data.reference_aqi != null && (
+                  <div className="mt-2 px-3 py-1.5 rounded-lg bg-raised border border-hairline text-xs text-center">
+                    <span className="text-muted">Official reading (WAQI/CPCB): </span>
+                    <span className="font-mono text-ink">{Math.round(data.reference_aqi)}</span>
+                  </div>
+                )}
               </div>
               <div className="bg-panel border border-hairline rounded-xl p-4">
                 <PollutantGrid pollutants={data.pollutants} source={data.data_sources?.pollutants} />

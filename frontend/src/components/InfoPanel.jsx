@@ -14,10 +14,17 @@ export default function InfoPanel({ sources }) {
       {open && (
         <div className="px-4 pb-4 text-sm text-muted space-y-2">
           <p>
-            Pollutants: <span className="font-mono text-xs">{sources?.pollutants === 'live' ? 'live CPCB stations via data.gov.in' : 'simulated'}</span>
+            Pollutants: <span className="font-mono text-xs">{sources?.pollutants === 'live' ? 'live (WAQI/CPCB, with data.gov.in as backup)' : 'simulated'}</span>
             {sources?.pollutants !== 'live' && sources?.pollutants_reason && (
               <span className="block text-xs text-band-poor mt-1">Reason: {sources.pollutants_reason}</span>
             )}
+          </p>
+          <p>
+            When available, the "Official reading" badge next to the gauge is WAQI's own published AQI for that
+            city — a ground-truth number to compare our model's estimate against directly. WAQI reports pollutants
+            as pre-computed sub-indices rather than raw concentrations, so those are converted back to an
+            approximate concentration (inverse of the CPCB breakpoint formula) before being fed to our model —
+            expect a small amount of rounding between the two numbers even when both are "live".
           </p>
           <p>
             Weather (used only to shape the outlook, see below): <span className="font-mono text-xs">{sources?.weather === 'live' ? 'live Open-Meteo forecast' : 'synthetic fallback (Open-Meteo request failed)'}</span>

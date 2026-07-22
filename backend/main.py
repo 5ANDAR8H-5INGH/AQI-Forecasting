@@ -82,6 +82,7 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
 
         pollutant_source = live_pollutants.pop("_source", "mock")
         pollutant_reason = live_pollutants.pop("_reason", "")
+        reference_aqi = live_pollutants.pop("_reference_aqi", None)
 
         current_aqi = predict_aqi(model, scaler, live_pollutants)
         outlook_values = build_outlook(model, scaler, live_pollutants, weather["wind"])
@@ -103,6 +104,9 @@ def get_forecast(city: str = Query(..., description="One of /api/cities")):
             "pollutants_reason": pollutant_reason,
             "weather": weather.get("source", "unknown"),
         },
+        # WAQI's own official AQI number, when available — ground truth to
+        # compare our model's estimate against directly, rather than guessing.
+        "reference_aqi": reference_aqi,
         "current": {"value": round(current_aqi, 1), "label": current_label, "color": current_color},
         "peak": {"value": round(peak_value, 1), "label": peak_label, "color": peak_color, "day": peak_day},
     }
@@ -138,6 +142,7 @@ def get_scenario(
 
         live_pollutants.pop("_source", None)
         live_pollutants.pop("_reason", None)
+        live_pollutants.pop("_reference_aqi", None)
 
         baseline = build_outlook(model, scaler, live_pollutants, weather["wind"])
         scenario = build_outlook(model, scaler, live_pollutants, weather["wind"], reduction_pct=pollutant_reduction_pct)
@@ -181,6 +186,7 @@ def get_interventions(city: str = Query(..., description="One of /api/cities")):
     live_pollutants = fetch_live_pollutants(city)
     pollutant_source = live_pollutants.pop("_source", "mock")
     pollutant_reason = live_pollutants.pop("_reason", "")
+    reference_aqi = live_pollutants.pop("_reference_aqi", None)
 
     ranked_sources = attribute_sources(live_pollutants)
     current_aqi = predict_aqi(model, scaler, live_pollutants)
@@ -189,6 +195,7 @@ def get_interventions(city: str = Query(..., description="One of /api/cities")):
     return {
         "city": city,
         "current_aqi_estimate": round(current_aqi, 1),
+        "reference_aqi": reference_aqi,
         "data_source": {"pollutants": pollutant_source, "reason": pollutant_reason},
         "source_attribution": ranked_sources,
         "intervention_plan": plan,
@@ -203,11 +210,14 @@ def debug_pollutants(city: str = Query(...)):
     browser or with curl to check your API key setup.
     """
     api_key_present = bool(os.environ.get("DATA_GOV_IN_API_KEY", "").strip())
+    waqi_token_present = bool(os.environ.get("WAQI_API_TOKEN", "").strip())
     result = fetch_live_pollutants(city)
     return {
         "city": city,
-        "api_key_loaded": api_key_present,
+        "data_gov_in_key_loaded": api_key_present,
+        "waqi_token_loaded": waqi_token_present,
         "source": result.get("_source"),
         "reason": result.get("_reason"),
+        "reference_aqi": result.get("_reference_aqi"),
         "pollutants": {k: v for k, v in result.items() if not k.startswith("_")},
     }
