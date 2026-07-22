@@ -5,7 +5,6 @@ import datetime
 import requests
 
 
-<<<<<<< HEAD
 def fetch_daily_wind_forecast(lat: float, lon: float, days: int = 3) -> dict:
     url = "https://api.open-meteo.com/v1/forecast"
     last_exc = None
@@ -43,29 +42,3 @@ def fetch_daily_wind_forecast(lat: float, lon: float, days: int = 3) -> dict:
     base_pattern = [10.0, 7.5, 13.0, 9.0, 11.5, 8.0]
     wind = [base_pattern[i % len(base_pattern)] for i in range(days)]
     return {"dates": dates, "wind": wind, "source": "synthetic"}
-=======
-def fetch_daily_wind_forecast(lat: float, lon: float, days: int = 4) -> dict:
-    url = "https://api.open-meteo.com/v1/forecast"
-    try:
-        res = requests.get(
-            url,
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "daily": "wind_speed_10m_max",
-                "forecast_days": days,
-                "timezone": "auto",
-            },
-            timeout=6,
-        ).json()
-        daily = res["daily"]
-        dates = daily["time"][:days]
-        wind = daily["wind_speed_10m_max"][:days]
-        if len(dates) < days:
-            raise ValueError("Incomplete forecast payload")
-        return {"dates": dates, "wind": wind, "source": "live"}
-    except Exception:
-        today = datetime.date.today()
-        dates = [(today + datetime.timedelta(days=i)).isoformat() for i in range(days)]
-        return {"dates": dates, "wind": [10.0] * days, "source": "synthetic"}
->>>>>>> 7513ba1e7f1be6e761605bf24388c936f088c80d
